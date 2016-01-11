@@ -1,8 +1,14 @@
 package Main;
 
-import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -20,6 +26,7 @@ import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.UIManager;
@@ -31,15 +38,24 @@ import javazoom.jl.player.Player;
 
 
 public class Main {
+	private static final double SPEED = 0.1;
 	private JFrame frame;
 	private String install_dir = "C:\\Program Files (x86)\\osu!\\Songs";
 	private Sheets s;
+	private ArrayList<Integer> beats;
 	private Player p;
+	private JPanel panel;
+	private BufferedImage img;
+	private Graphics2D g;
+	private Graphics g2;
+	private long startTime = Long.MIN_VALUE;
+	private boolean playing = false;
 	public static void main(String[] args){
 		new Main();
 	}
 	public Main(){
 		JFileChooser j = new JFileChooser();
+		img = new BufferedImage(400, 360, BufferedImage.TYPE_INT_RGB);
 		frame = new JFrame();
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		try {
@@ -53,9 +69,21 @@ public class Main {
 		ArrayList<String> c = new ArrayList<String>(a.keySet());
 		Collections.sort(c);
 		String[] b = new String[a.size()];
+		GridBagLayout gridBagLayout = new GridBagLayout();
+		gridBagLayout.columnWidths = new int[] {400, 0};
+		gridBagLayout.rowHeights = new int[] {120, 120, 120, 0};
+		gridBagLayout.columnWeights = new double[]{0.0, Double.MIN_VALUE};
+		gridBagLayout.rowWeights = new double[]{0.0, 0.0, 0.0, Double.MIN_VALUE};
+		frame.getContentPane().setLayout(gridBagLayout);
+		
 
 		JScrollPane scrollPane = new JScrollPane();
-		frame.getContentPane().add(scrollPane, BorderLayout.CENTER);
+		GridBagConstraints gbc_scrollPane = new GridBagConstraints();
+		gbc_scrollPane.gridheight = 2;
+		gbc_scrollPane.fill = GridBagConstraints.BOTH;
+		gbc_scrollPane.gridx = 0;
+		gbc_scrollPane.gridy = 0;
+		frame.getContentPane().add(scrollPane, gbc_scrollPane);
 
 
 
@@ -90,6 +118,7 @@ public class Main {
 			public void actionPerformed(ActionEvent arg0) {
 				s.stop();
 				p.close();
+				playing = false;
 				mntmStop.setEnabled(false);
 			}
 		});
@@ -100,6 +129,8 @@ public class Main {
 				Thread t = new Thread() {
 					public void run() {
 						s.play();
+						playing = true;
+						startTime = System.currentTimeMillis();
 					}
 				};
 				t.start();
@@ -115,10 +146,12 @@ public class Main {
 				Thread t = new Thread() {
 					public void run() {
 						try { 
-							long millis = System.currentTimeMillis();
+							playing = true;
+							startTime = System.currentTimeMillis();
 							p.play(); 
-							Thread.sleep(System.currentTimeMillis()-millis+s.getOffset());
+							Thread.sleep(System.currentTimeMillis()-startTime+s.getOffset());
 							s.play();
+							
 						}
 						catch (Exception e) {e.printStackTrace();}
 					}
@@ -140,6 +173,7 @@ public class Main {
 			public void valueChanged(ListSelectionEvent arg0) {
 				if(!list.isSelectionEmpty()){
 					s = new Sheets(a.get(list.getSelectedValue())[0]);
+					
 					try {
 						p = new Player(new FileInputStream(a.get(list.getSelectedValue())[1]));
 					} catch (FileNotFoundException e) {
@@ -150,6 +184,7 @@ public class Main {
 						e.printStackTrace();
 					}
 					s.run();
+					beats = s.getBeats();
 				}
 				mntmMidi.setEnabled(!list.isSelectionEmpty());
 				mntmMidiAndSong.setEnabled(!list.isSelectionEmpty());
@@ -177,9 +212,41 @@ public class Main {
 		});
 		mnFile.add(mntmChangeOsuInstall);
 
+		panel = new JPanel();
+		GridBagConstraints gbc_panel = new GridBagConstraints();
+		gbc_panel.fill = GridBagConstraints.BOTH;
+		gbc_panel.gridx = 0;
+		gbc_panel.gridy = 2;
+		frame.getContentPane().add(panel, gbc_panel);
+		FlowLayout fl_panel = new FlowLayout(FlowLayout.CENTER, 0, 0);
+		panel.setLayout(fl_panel);
+		g = (Graphics2D) img.getGraphics();
+		g2 = panel.getGraphics();
+		
 		frame.setSize(400, 360);
 		frame.setResizable(false);
 		frame.setVisible(true);
+		run();
+	}
+	public void run(){
+		while(true){
+			draw();
+		}
+	}
+	public void draw(){
+		g.setColor(Color.WHITE);
+		g.fillRect(0, 0, 400, 360);
+		if(playing){
+			g.setColor(Color.GREEN);
+			g.fillRect(40, 0, 5, 120);
+			g.setColor(Color.RED);
+			for(int i : beats){
+				int off = (int)((i+startTime-System.currentTimeMillis())*SPEED);
+				g.fillRect(40+off, 0, 2, 120);
+			}
+		}
+		g2 = panel.getGraphics();
+		g2.drawImage(img, 0, 0, null);
 	}
 	public LinkedHashMap<String, String[]> showFiles(File[] file){
 		LinkedHashMap<String, String[]> files = new LinkedHashMap<String, String[]>();

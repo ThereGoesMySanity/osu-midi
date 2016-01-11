@@ -1,18 +1,14 @@
 package Main;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Scanner;
 
 import org.jfugue.midi.MidiFileManager;
 import org.jfugue.pattern.Pattern;
 import org.jfugue.player.Player;
-import org.jfugue.theory.Note;
 
 public class Sheets{
 	private List<String> s;
@@ -27,6 +23,9 @@ public class Sheets{
 	
 	private int length = 0;
 	private ArrayList<Integer> beats = new ArrayList<Integer>();
+	public ArrayList<Integer> getBeats() {
+		return beats;
+	}
 	private Player pl;
 	
 	public Sheets(String s){
@@ -52,7 +51,6 @@ public class Sheets{
 		
 		while(!s.remove(0).equals("[HitObjects]"));
 		str = s.remove(0).split(",");
-		offset+=Integer.parseInt(str[2]);
 		while(!str[0].equals("")){
 			beats.add(Integer.parseInt(str[2]));
 			length=Integer.parseInt(str[2]);
