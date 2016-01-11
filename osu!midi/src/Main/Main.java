@@ -42,7 +42,6 @@ public class Main {
 		JFileChooser j = new JFileChooser();
 		frame = new JFrame();
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
 		try {
 			UIManager.setLookAndFeel(
 					UIManager.getSystemLookAndFeelClassName());
@@ -98,7 +97,12 @@ public class Main {
 		mntmMidi.setEnabled(false);
 		mntmMidi.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				s.play();
+				Thread t = new Thread() {
+					public void run() {
+						s.play();
+					}
+				};
+				t.start();
 				mntmStop.setEnabled(true);
 			}
 		});
@@ -108,13 +112,20 @@ public class Main {
 		mntmMidiAndSong.setEnabled(false);
 		mntmMidiAndSong.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				s.play();
-				try {
-					p.play();
-				} catch (JavaLayerException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+				Thread t = new Thread() {
+					public void run() {
+						try { 
+							long millis = System.currentTimeMillis();
+							p.play(); 
+							Thread.sleep(System.currentTimeMillis()-millis+s.getOffset());
+							s.play();
+						}
+						catch (Exception e) {e.printStackTrace();}
+					}
+				};
+				t.start();
+
+
 				mntmStop.setEnabled(true);
 			}
 		});
