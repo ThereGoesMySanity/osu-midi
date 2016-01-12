@@ -26,14 +26,12 @@ public class Sheets{
 	public ArrayList<Integer[]> getBeats() {
 		return beats;
 	}
-	private Player pl;
-
 	public Sheets(String s){
 		file = s;
 	}
 
 	public void run(){
-		pl = new Player();
+		new Player();
 		File f = new File(file);
 		try {
 			s = Files.readAllLines(f.toPath());
@@ -90,14 +88,8 @@ public class Sheets{
 
 
 	}
-	public void play(){
-		pl.play(p);
-	}
 
 	public void save(File f) throws IOException{
 		MidiFileManager.savePatternToMidi(p, f);
-	}
-	public void stop(){
-		pl.play("");
 	}
 }

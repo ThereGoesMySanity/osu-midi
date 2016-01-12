@@ -52,7 +52,6 @@ public class Main {
 
 	private long startTime = Long.MIN_VALUE;
 	private boolean playing = false;
-	private int ia;
 	public static void main(String[] args){
 		new Main();
 	}
@@ -122,7 +121,6 @@ public class Main {
 		JMenuItem mntmStop = new JMenuItem("Stop");
 		mntmStop.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				s.stop();
 				p.close();
 				playing = false;
 				mntmStop.setEnabled(false);
@@ -135,6 +133,7 @@ public class Main {
 				Thread t = new Thread() {
 
 					public void run() {
+						new ArrayList<Integer[]>();
 						playing = true;
 						startTime = System.currentTimeMillis();
 					}
@@ -155,6 +154,7 @@ public class Main {
 							playing = true;
 							startTime = System.currentTimeMillis();
 							p.play(); 
+							new ArrayList<Integer[]>();
 
 						}
 						catch (Exception e) {e.printStackTrace();}
@@ -189,6 +189,7 @@ public class Main {
 					}
 					s.run();
 					beats = s.getBeats();
+					
 				}
 				mntmMidi.setEnabled(!list.isSelectionEmpty());
 				mntmMidiAndSong.setEnabled(!list.isSelectionEmpty());
@@ -233,22 +234,20 @@ public class Main {
 		run();
 	}
 	public void run(){
-		ia=11;
 		while(true){
 			draw();
-			ia++;
 		}
 	}
 	public void draw(){
 		g.setColor(Color.WHITE);
 		g.fillRect(0, 0, 400, 360);
+		
 		if(playing){
 			for(Integer[] i : beats){
 				int off = (int)((i[0]+startTime-System.currentTimeMillis())*SPEED);
 				if(off>400)break;
-				if(Math.abs(off-DELAY)<2&&ia>10){
+				if(off-DELAY==0){
 					JukeBox.play("hitsound");
-					ia=0;
 				}
 				if(i[1]/2%2==1)g.setColor(Color.BLUE);
 				else g.setColor(Color.CYAN);
