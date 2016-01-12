@@ -39,21 +39,27 @@ import javazoom.jl.player.Player;
 
 public class Main {
 	private static final double SPEED = 0.1;
+	private static final int DELAY = -10;
 	private JFrame frame;
 	private String install_dir = "C:\\Program Files (x86)\\osu!\\Songs";
 	private Sheets s;
-	private ArrayList<Integer> beats;
+	private ArrayList<Integer[]> beats;
 	private Player p;
 	private JPanel panel;
 	private BufferedImage img;
 	private Graphics2D g;
 	private Graphics g2;
+
 	private long startTime = Long.MIN_VALUE;
 	private boolean playing = false;
+	private int ia;
 	public static void main(String[] args){
 		new Main();
 	}
 	public Main(){
+		JukeBox.init();
+		JukeBox.load("/soft-hitclap.wav", "hitsound");
+		JukeBox.setVolume("hitsound", -3.0f);
 		JFileChooser j = new JFileChooser();
 		img = new BufferedImage(400, 360, BufferedImage.TYPE_INT_RGB);
 		frame = new JFrame();
@@ -75,7 +81,7 @@ public class Main {
 		gridBagLayout.columnWeights = new double[]{0.0, Double.MIN_VALUE};
 		gridBagLayout.rowWeights = new double[]{0.0, 0.0, 0.0, Double.MIN_VALUE};
 		frame.getContentPane().setLayout(gridBagLayout);
-		
+
 
 		JScrollPane scrollPane = new JScrollPane();
 		GridBagConstraints gbc_scrollPane = new GridBagConstraints();
@@ -127,8 +133,8 @@ public class Main {
 		mntmMidi.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				Thread t = new Thread() {
+
 					public void run() {
-						s.play();
 						playing = true;
 						startTime = System.currentTimeMillis();
 					}
@@ -149,9 +155,7 @@ public class Main {
 							playing = true;
 							startTime = System.currentTimeMillis();
 							p.play(); 
-							Thread.sleep(System.currentTimeMillis()-startTime+s.getOffset());
-							s.play();
-							
+
 						}
 						catch (Exception e) {e.printStackTrace();}
 					}
@@ -173,7 +177,7 @@ public class Main {
 			public void valueChanged(ListSelectionEvent arg0) {
 				if(!list.isSelectionEmpty()){
 					s = new Sheets(a.get(list.getSelectedValue())[0]);
-					
+
 					try {
 						p = new Player(new FileInputStream(a.get(list.getSelectedValue())[1]));
 					} catch (FileNotFoundException e) {
@@ -222,27 +226,41 @@ public class Main {
 		panel.setLayout(fl_panel);
 		g = (Graphics2D) img.getGraphics();
 		g2 = panel.getGraphics();
-		
+
 		frame.setSize(400, 360);
 		frame.setResizable(false);
 		frame.setVisible(true);
 		run();
 	}
 	public void run(){
+		ia=11;
 		while(true){
 			draw();
+			ia++;
 		}
 	}
 	public void draw(){
 		g.setColor(Color.WHITE);
 		g.fillRect(0, 0, 400, 360);
 		if(playing){
-			g.setColor(Color.GREEN);
-			g.fillRect(40, 0, 5, 120);
-			g.setColor(Color.RED);
-			for(int i : beats){
-				int off = (int)((i+startTime-System.currentTimeMillis())*SPEED);
-				g.fillRect(40+off, 0, 2, 120);
+			for(Integer[] i : beats){
+				int off = (int)((i[0]+startTime-System.currentTimeMillis())*SPEED);
+				if(off>400)break;
+				if(Math.abs(off-DELAY)<2&&ia>10){
+					JukeBox.play("hitsound");
+					ia=0;
+				}
+				if(i[1]/2%2==1)g.setColor(Color.BLUE);
+				else g.setColor(Color.CYAN);
+				g.fillRect(40+off-DELAY, 0, (int) (i[2]*i[3]*SPEED), 120);
+				for(int k = 1; k <= i[3]; k++){
+					g.setColor(Color.ORANGE);
+					g.fillRect((int) (40+off-DELAY+(i[2]*k*SPEED)), 0, 2, 120);
+				}
+				g.setColor(Color.RED);
+				g.fillRect(40+off-DELAY, 0, 2, 120);
+				g.setColor(Color.GREEN);
+				g.fillRect(36, 0, 4, 120);
 			}
 		}
 		g2 = panel.getGraphics();
