@@ -1,6 +1,7 @@
 package Main;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -26,8 +27,11 @@ import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JSlider;
 import javax.swing.ListSelectionModel;
 import javax.swing.UIManager;
 import javax.swing.event.ListSelectionEvent;
@@ -35,16 +39,18 @@ import javax.swing.event.ListSelectionListener;
 
 import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.player.Player;
+import javax.swing.JCheckBoxMenuItem;
 
 
 public class Main {
-	private static final double SPEED = 0.1;
-	private static final int DELAY = -10;
+	private static double speed = 0.1;
+	private static int delay = -90;
 	private JFrame frame;
 	private String install_dir = "C:\\Program Files (x86)\\osu!\\Songs";
-	private Sheets s;
+	private Sheets sheet;
 	private ArrayList<Integer[]> beats;
-	private Player p;
+	private ArrayList<Integer> played;
+	private Player player;
 	private JPanel panel;
 	private BufferedImage img;
 	private Graphics2D g;
@@ -52,6 +58,7 @@ public class Main {
 
 	private long startTime = Long.MIN_VALUE;
 	private boolean playing = false;
+	private JCheckBoxMenuItem sliderRepeat;
 	public static void main(String[] args){
 		new Main();
 	}
@@ -106,7 +113,7 @@ public class Main {
 				j.setDialogTitle("Save midi");
 				if(j.showSaveDialog(frame)==JFileChooser.APPROVE_OPTION){
 					try {
-						s.save(j.getSelectedFile());
+						sheet.save(j.getSelectedFile());
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -121,7 +128,7 @@ public class Main {
 		JMenuItem mntmStop = new JMenuItem("Stop");
 		mntmStop.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				p.close();
+				player.close();
 				playing = false;
 				mntmStop.setEnabled(false);
 			}
@@ -133,7 +140,7 @@ public class Main {
 				Thread t = new Thread() {
 
 					public void run() {
-						new ArrayList<Integer[]>();
+						played = new ArrayList<Integer>();
 						playing = true;
 						startTime = System.currentTimeMillis();
 					}
@@ -153,8 +160,8 @@ public class Main {
 						try { 
 							playing = true;
 							startTime = System.currentTimeMillis();
-							p.play(); 
-							new ArrayList<Integer[]>();
+							player.play(); 
+							played = new ArrayList<Integer>();
 
 						}
 						catch (Exception e) {e.printStackTrace();}
@@ -171,15 +178,60 @@ public class Main {
 		mntmStop.setEnabled(false);
 		mnPlay.add(mntmStop);
 
+		JMenuItem mntmSetSpeed = new JMenuItem("Set speed...");
+		mntmSetSpeed.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				JSlider s = new JSlider();
+				s.setMaximum(100);
+				s.setMinimum(0);
+				s.setValue((int) (speed*100));
+				s.setPaintTicks(true);
+				s.setPaintLabels(true);
+				s.setMajorTickSpacing(10);
+				JOptionPane.showOptionDialog(frame, "Set speed (10 is the default)", "Set speed", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, new JSlider[]{s}, null);
+
+				int i = s.getValue();
+				speed = i/100.0;
+
+			}
+		});
+
+		JSeparator separator = new JSeparator();
+		mnPlay.add(separator);
+		mnPlay.add(mntmSetSpeed);
+
+		JMenuItem mntmSetVolume = new JMenuItem("Set volume...");
+		mntmSetVolume.addActionListener(new ActionListener() {
+			private int volume = 0;
+
+			public void actionPerformed(ActionEvent e) {
+				JSlider s = new JSlider();
+				s.setMaximum(6);
+				s.setMinimum(-10);
+				s.setValue(volume );s.setPaintTicks(true);
+				s.setPaintLabels(true);
+				s.setMajorTickSpacing(2);
+				JOptionPane.showOptionDialog(frame, "Set volume", "Set volume", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, new Component[]{s, }, null);
+				volume = s.getValue();
+				JukeBox.setVolume("hitsound", s.getValue());
+
+			}
+		});
+		mnPlay.add(mntmSetVolume);
+		
+		sliderRepeat = new JCheckBoxMenuItem("Enable slider repeat hitsounds");
+		
+		mnPlay.add(sliderRepeat);
+
 		JList<String> list = new JList<String>();
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.addListSelectionListener(new ListSelectionListener() {
 			public void valueChanged(ListSelectionEvent arg0) {
 				if(!list.isSelectionEmpty()){
-					s = new Sheets(a.get(list.getSelectedValue())[0]);
+					sheet = new Sheets(a.get(list.getSelectedValue())[0]);
 
 					try {
-						p = new Player(new FileInputStream(a.get(list.getSelectedValue())[1]));
+						player = new Player(new FileInputStream(a.get(list.getSelectedValue())[1]));
 					} catch (FileNotFoundException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -187,9 +239,9 @@ public class Main {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					s.run();
-					beats = s.getBeats();
-					
+					sheet.run();
+					beats = sheet.getBeats();
+
 				}
 				mntmMidi.setEnabled(!list.isSelectionEmpty());
 				mntmMidiAndSong.setEnabled(!list.isSelectionEmpty());
@@ -241,25 +293,34 @@ public class Main {
 	public void draw(){
 		g.setColor(Color.WHITE);
 		g.fillRect(0, 0, 400, 360);
-		
+
 		if(playing){
 			for(Integer[] i : beats){
-				int off = (int)((i[0]+startTime-System.currentTimeMillis())*SPEED);
-				if(off>400)break;
-				if(off-DELAY==0){
+				int off = (int) (i[0]+startTime-System.currentTimeMillis());
+				if(off*speed>400)break;
+				if(played==null)played = new ArrayList<Integer>();
+				if(off-delay<=0&&off-delay>-5){
 					JukeBox.play("hitsound");
 				}
+				
 				if(i[1]/2%2==1)g.setColor(Color.BLUE);
 				else g.setColor(Color.CYAN);
-				g.fillRect(40+off-DELAY, 0, (int) (i[2]*i[3]*SPEED), 120);
+				g.fillRect((int) (40+(off-delay)*speed), 0, (int) (i[2]*i[3]*speed), 120);
 				for(int k = 1; k <= i[3]; k++){
+					if(sliderRepeat.isSelected()&&off-delay+i[2]*k<=0&&off-delay+i[2]*k>-5){
+						JukeBox.play("hitsound");
+					}
 					g.setColor(Color.ORANGE);
-					g.fillRect((int) (40+off-DELAY+(i[2]*k*SPEED)), 0, 2, 120);
+					g.fillRect((int) (39+(off-delay+i[2]*k)*speed), 0, 2, 120);
 				}
 				g.setColor(Color.RED);
-				g.fillRect(40+off-DELAY, 0, 2, 120);
+				g.fillRect((int) (40+(off-delay)*speed), 0, 2, 120);
 				g.setColor(Color.GREEN);
 				g.fillRect(36, 0, 4, 120);
+			}
+			if(beats.get(beats.size()-1)[0]+startTime-System.currentTimeMillis()<-100){
+				player.close();
+				playing = false;
 			}
 		}
 		g2 = panel.getGraphics();
