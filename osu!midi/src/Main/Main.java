@@ -145,6 +145,7 @@ public class Main {
 		menuBar.add(mnPlay);
 		JMenuItem mntmStop = new JMenuItem("Stop");
 		mntmStop.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				player.close();
 				playing = false;
@@ -154,9 +155,11 @@ public class Main {
 		JMenuItem mntmMidi = new JMenuItem("Midi");
 		mntmMidi.setEnabled(false);
 		mntmMidi.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				Thread t = new Thread() {
 
+					@Override
 					public void run() {
 						playing = true;
 						startTime = System.currentTimeMillis();
@@ -171,8 +174,10 @@ public class Main {
 		JMenuItem mntmMidiAndSong = new JMenuItem("Midi and song");
 		mntmMidiAndSong.setEnabled(false);
 		mntmMidiAndSong.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				Thread t = new Thread() {
+					@Override
 					public void run() {
 						try { 
 							playing = true;
@@ -196,6 +201,7 @@ public class Main {
 
 		JMenuItem mntmSetSpeed = new JMenuItem("Set speed...");
 		mntmSetSpeed.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				speed = sliderDialog(0, 50, (int) (speed*100), 5, "Set speed")/100.0;
 				prefs.putDouble("speed", speed);
@@ -215,6 +221,7 @@ public class Main {
 		JMenuItem mntmSetVolume = new JMenuItem("Set volume...");
 		mntmSetVolume.addActionListener(new ActionListener() {
 
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				volume = sliderDialog(-6, 6, (int) volume, 2, "Set volume");
 				setVolume(volume);
@@ -231,6 +238,7 @@ public class Main {
 
 		JMenuItem mntmSetDelay = new JMenuItem("Set delay...");
 		mntmSetDelay.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				delay = sliderDialog(-200, 200, delay, 50,"Set delay" );
 				prefs.putInt("delay", delay);
@@ -251,6 +259,7 @@ public class Main {
 		JList<String> list = new JList<String>();
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.addListSelectionListener(new ListSelectionListener() {
+			@Override
 			public void valueChanged(ListSelectionEvent arg0) {
 				if(!list.isSelectionEmpty()){
 					sheet = new Sheets(a.get(list.getSelectedValue())[0]);
@@ -281,6 +290,7 @@ public class Main {
 
 		JMenuItem mntmChangeOsuInstall = new JMenuItem("Change osu! install location");
 		mntmChangeOsuInstall.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				j.setDialogTitle("Choose the Songs folder");
 				j.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -294,6 +304,7 @@ public class Main {
 
 		JMenuItem mntmRunOsu = new JMenuItem("Run osu!");
 		mntmRunOsu.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				if(System.getProperty("os.name").toLowerCase().contains("windows")){
 					try {
