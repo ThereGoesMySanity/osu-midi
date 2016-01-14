@@ -18,9 +18,17 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JList;
@@ -39,23 +47,24 @@ import javax.swing.event.ListSelectionListener;
 
 import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.player.Player;
-import javax.swing.JCheckBoxMenuItem;
 
 
 public class Main {
 	private static double speed = 0.1;
 	private static int delay = -90;
+	private static float volume = 0;
+	private Preferences prefs = Preferences.userRoot().node("osu!midi");
 	private JFrame frame;
-	private String install_dir = "C:\\Program Files (x86)\\osu!\\Songs";
+	private String install_dir = "C:\\Program Files (x86)\\osu!";
 	private Sheets sheet;
-	private ArrayList<Integer[]> beats;
-	private ArrayList<Integer> played;
+	private LinkedList<Integer[]> beats;
 	private Player player;
+	private Clip clip;
+	private FloatControl vol;
 	private JPanel panel;
 	private BufferedImage img;
 	private Graphics2D g;
 	private Graphics g2;
-
 	private long startTime = Long.MIN_VALUE;
 	private boolean playing = false;
 	private JCheckBoxMenuItem sliderRepeat;
@@ -63,9 +72,36 @@ public class Main {
 		new Main();
 	}
 	public Main(){
-		JukeBox.init();
-		JukeBox.load("/soft-hitclap.wav", "hitsound");
-		JukeBox.setVolume("hitsound", -3.0f);
+		volume = prefs.getFloat("volume", volume);
+		speed = prefs.getDouble("speed", speed);
+		delay = prefs.getInt("delay", delay);
+		
+		try {
+			AudioInputStream ais =
+				AudioSystem.getAudioInputStream(
+					getClass().getResourceAsStream("/soft-hitclap.wav")
+				);
+			AudioFormat baseFormat = ais.getFormat();
+			AudioFormat decodeFormat = new AudioFormat(
+				AudioFormat.Encoding.PCM_SIGNED,
+				baseFormat.getSampleRate(),
+				16,
+				baseFormat.getChannels(),
+				baseFormat.getChannels() * 2,
+				baseFormat.getSampleRate(),
+				false
+			);
+			AudioInputStream dais = AudioSystem.getAudioInputStream(decodeFormat, ais);
+			clip = AudioSystem.getClip();
+			clip.open(dais);
+			vol = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+			setVolume(volume);
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
+		
+		setVolume(-3.0f);
 		JFileChooser j = new JFileChooser();
 		img = new BufferedImage(400, 360, BufferedImage.TYPE_INT_RGB);
 		frame = new JFrame();
@@ -105,24 +141,6 @@ public class Main {
 		JMenu mnFile = new JMenu("File");
 		menuBar.add(mnFile);
 
-
-		JMenuItem mntmExportMidi = new JMenuItem("Export midi");
-		mntmExportMidi.setEnabled(false);
-		mntmExportMidi.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent arg0) {
-				j.setDialogTitle("Save midi");
-				if(j.showSaveDialog(frame)==JFileChooser.APPROVE_OPTION){
-					try {
-						sheet.save(j.getSelectedFile());
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-			}
-		});
-		mnFile.add(mntmExportMidi);
-
 		JMenu mnPlay = new JMenu("Play");
 		menuBar.add(mnPlay);
 		JMenuItem mntmStop = new JMenuItem("Stop");
@@ -140,7 +158,6 @@ public class Main {
 				Thread t = new Thread() {
 
 					public void run() {
-						played = new ArrayList<Integer>();
 						playing = true;
 						startTime = System.currentTimeMillis();
 					}
@@ -161,7 +178,6 @@ public class Main {
 							playing = true;
 							startTime = System.currentTimeMillis();
 							player.play(); 
-							played = new ArrayList<Integer>();
 
 						}
 						catch (Exception e) {e.printStackTrace();}
@@ -181,18 +197,14 @@ public class Main {
 		JMenuItem mntmSetSpeed = new JMenuItem("Set speed...");
 		mntmSetSpeed.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				JSlider s = new JSlider();
-				s.setMaximum(100);
-				s.setMinimum(0);
-				s.setValue((int) (speed*100));
-				s.setPaintTicks(true);
-				s.setPaintLabels(true);
-				s.setMajorTickSpacing(10);
-				JOptionPane.showOptionDialog(frame, "Set speed (10 is the default)", "Set speed", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, new JSlider[]{s}, null);
-
-				int i = s.getValue();
-				speed = i/100.0;
-
+				speed = sliderDialog(0, 50, (int) (speed*100), 5, "Set speed")/100.0;
+				prefs.putDouble("speed", speed);
+				try {
+					prefs.flush();
+				} catch (BackingStoreException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		});
 
@@ -202,25 +214,38 @@ public class Main {
 
 		JMenuItem mntmSetVolume = new JMenuItem("Set volume...");
 		mntmSetVolume.addActionListener(new ActionListener() {
-			private int volume = 0;
 
 			public void actionPerformed(ActionEvent e) {
-				JSlider s = new JSlider();
-				s.setMaximum(6);
-				s.setMinimum(-10);
-				s.setValue(volume );s.setPaintTicks(true);
-				s.setPaintLabels(true);
-				s.setMajorTickSpacing(2);
-				JOptionPane.showOptionDialog(frame, "Set volume", "Set volume", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, new Component[]{s, }, null);
-				volume = s.getValue();
-				JukeBox.setVolume("hitsound", s.getValue());
-
+				volume = sliderDialog(-6, 6, (int) volume, 2, "Set volume");
+				setVolume(volume);
+				prefs.putFloat("volume", volume);
+				try {
+					prefs.flush();
+				} catch (BackingStoreException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 			}
 		});
 		mnPlay.add(mntmSetVolume);
-		
+
+		JMenuItem mntmSetDelay = new JMenuItem("Set delay...");
+		mntmSetDelay.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				delay = sliderDialog(-200, 200, delay, 50,"Set delay" );
+				prefs.putInt("delay", delay);
+				try {
+					prefs.flush();
+				} catch (BackingStoreException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			}
+		});
+		mnPlay.add(mntmSetDelay);
+
 		sliderRepeat = new JCheckBoxMenuItem("Enable slider repeat hitsounds");
-		
+
 		mnPlay.add(sliderRepeat);
 
 		JList<String> list = new JList<String>();
@@ -241,11 +266,9 @@ public class Main {
 					}
 					sheet.run();
 					beats = sheet.getBeats();
-
 				}
 				mntmMidi.setEnabled(!list.isSelectionEmpty());
 				mntmMidiAndSong.setEnabled(!list.isSelectionEmpty());
-				mntmExportMidi.setEnabled(!list.isSelectionEmpty());
 			}
 		});
 		if(c.size()>0){
@@ -268,6 +291,21 @@ public class Main {
 			}
 		});
 		mnFile.add(mntmChangeOsuInstall);
+
+		JMenuItem mntmRunOsu = new JMenuItem("Run osu!");
+		mntmRunOsu.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				if(System.getProperty("os.name").toLowerCase().contains("windows")){
+					try {
+						Runtime.getRuntime().exec(install_dir+"\\osu!.exe");
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
+		mnFile.add(mntmRunOsu);
 
 		panel = new JPanel();
 		GridBagConstraints gbc_panel = new GridBagConstraints();
@@ -293,22 +331,19 @@ public class Main {
 	public void draw(){
 		g.setColor(Color.WHITE);
 		g.fillRect(0, 0, 400, 360);
-
 		if(playing){
 			for(Integer[] i : beats){
 				int off = (int) (i[0]+startTime-System.currentTimeMillis());
 				if(off*speed>400)break;
-				if(played==null)played = new ArrayList<Integer>();
 				if(off-delay<=0&&off-delay>-5){
-					JukeBox.play("hitsound");
+					playSound();
 				}
-				
 				if(i[1]/2%2==1)g.setColor(Color.BLUE);
 				else g.setColor(Color.CYAN);
 				g.fillRect((int) (40+(off-delay)*speed), 0, (int) (i[2]*i[3]*speed), 120);
 				for(int k = 1; k <= i[3]; k++){
 					if(sliderRepeat.isSelected()&&off-delay+i[2]*k<=0&&off-delay+i[2]*k>-5){
-						JukeBox.play("hitsound");
+						playSound();
 					}
 					g.setColor(Color.ORANGE);
 					g.fillRect((int) (39+(off-delay+i[2]*k)*speed), 0, 2, 120);
@@ -318,16 +353,12 @@ public class Main {
 				g.setColor(Color.GREEN);
 				g.fillRect(36, 0, 4, 120);
 			}
-			if(beats.get(beats.size()-1)[0]+startTime-System.currentTimeMillis()<-100){
-				player.close();
-				playing = false;
-			}
 		}
 		g2 = panel.getGraphics();
 		g2.drawImage(img, 0, 0, null);
 	}
-	public LinkedHashMap<String, String[]> showFiles(File[] file){
-		LinkedHashMap<String, String[]> files = new LinkedHashMap<String, String[]>();
+	public HashMap<String, String[]> showFiles(File[] file){
+		HashMap<String, String[]> files = new HashMap<String, String[]>();
 		for(File f : file){
 			if (f.isDirectory()) {
 
@@ -359,5 +390,26 @@ public class Main {
 			}
 		}
 		return files;
+	}
+	private void playSound(){
+		if(clip == null) return;
+		if(clip.isRunning()) clip.stop();
+		clip.setFramePosition(0);
+		while(!clip.isRunning()) clip.start();
+	}
+	private void setVolume(float f){
+		vol.setValue(f);
+	}
+	
+	private int sliderDialog(int min, int max, int val, int tickSpacing, String text){
+		JSlider s = new JSlider();
+		s.setMaximum(max);
+		s.setMinimum(min);
+		s.setValue(val);
+		s.setPaintTicks(true);
+		s.setPaintLabels(true);
+		s.setMajorTickSpacing(tickSpacing);
+		JOptionPane.showOptionDialog(frame, text, text, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, new Component[]{s}, null);
+		return s.getValue();
 	}
 }
