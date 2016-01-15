@@ -10,6 +10,7 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -79,7 +80,7 @@ public class Main {
 		try {
 			AudioInputStream ais =
 				AudioSystem.getAudioInputStream(
-					getClass().getResourceAsStream("/soft-hitclap.wav")
+					new BufferedInputStream(getClass().getResourceAsStream("/soft-hitclap.wav"))
 				);
 			AudioFormat baseFormat = ais.getFormat();
 			AudioFormat decodeFormat = new AudioFormat(
